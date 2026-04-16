@@ -18,17 +18,56 @@ const int PIN_MAG3_LS = D8;
 // Samples for calibration offset
 const int ZERO_SAMPLES = 200;
 
+// Sensor-to-axis transformation matrix (6 axes × 9 sensor components).
+// Column order: [m1x, m1y, m1z, m2x, m2y, m2z, m3x, m3y, m3z]
+// Default reproduces the original hard-coded formulas.
+//   √3/3 ≈ 0.5773503,  √3/6 ≈ 0.2886751,  2√3/3 ≈ 1.1547005
+const float TRANSFORM[6][9] = {
+  // Tx = (m1x + m2x + m3x) / 3
+  { 0.3333333f, 0, 0,  0.3333333f, 0, 0,  0.3333333f, 0, 0 },
+  // Ty = (m1y + m2y + m3y) / 3
+  { 0, 0.3333333f, 0,  0, 0.3333333f, 0,  0, 0.3333333f, 0 },
+  // Tz = (m1z + m2z + m3z) / 3
+  { 0, 0, 0.3333333f,  0, 0, 0.3333333f,  0, 0, 0.3333333f },
+  // Rx = √3·(m2z + m3z − 2·m1z) / 3
+  { 0, 0, -1.1547005f,  0, 0, 0.5773503f,  0, 0, 0.5773503f },
+  // Ry = m3z − m2z
+  { 0, 0, 0,  0, 0, -1.0f,  0, 0, 1.0f },
+  // Rz = Σ(posXᵢ·magYᵢ − posYᵢ·magXᵢ)
+  { 0.5773503f, 0, 0,  -0.2886751f, -0.5f, 0,  -0.2886751f, 0.5f, 0 },
+};
+
 // Gains and sign fixes
 const float GAIN_T[3] = {28.0, 28.0, 24.0};
 const float GAIN_R[3] = {18.0, 18.0, 20.0};
 const int SIGN_AXIS[6] = {-1, +1, -1, +1, +1, +1};
 
-// Dead zones
-const float DEAD_T = 16.0;
-const float DEAD_R = 20.0;
+// Cross-axis compensation matrix (6×6, identity = no compensation).
+// Off-diagonal terms cancel residual bleed between axes.
+const float COMP[6][6] = {
+  {1, 0, 0, 0, 0, 0},
+  {0, 1, 0, 0, 0, 0},
+  {0, 0, 1, 0, 0, 0},
+  {0, 0, 0, 1, 0, 0},
+  {0, 0, 0, 0, 1, 0},
+  {0, 0, 0, 0, 0, 1},
+};
 
-// Smoothing
+// Per-axis dead zones
+//                    Tx    Ty    Tz    Rx    Ry    Rz
+const float DEADZONE[6] = {16.0, 16.0, 16.0, 20.0, 20.0, 20.0};
+
+// Smoothing (single-pole fallback)
 const float SMOOTH_TAU_S = 0.08;
+
+// Biquad low-pass filter (comment out to use single-pole fallback).
+#define FILTER_BIQUAD
+const float FILTER_FREQ_HZ = 8.0f;    // cutoff frequency
+const float FILTER_Q = 0.707f;        // Butterworth (maximally flat)
+
+// Response curve: blend between linear and cubic.
+// 1.0 = pure linear (current behaviour), 0.0 = pure cubic.
+const float RESPONSE_LINEARITY = 1.0f;
 
 // Final axis output range
 const float AXIS_LIMIT = 350.0;
