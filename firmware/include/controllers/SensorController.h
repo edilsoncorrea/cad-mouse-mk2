@@ -21,9 +21,9 @@ class SensorController {
   static void powerOff(int pin);
   static void powerOn(int pin);
 
-  ifx::tlx493d::TLx493D_A2B6 mag1Sensor_;
-  ifx::tlx493d::TLx493D_A2B6 mag2Sensor_;
-  ifx::tlx493d::TLx493D_A2B6 mag3Sensor_;
+  ifx::tlx493d::TLx493D_A1B6 mag1Sensor_;
+  ifx::tlx493d::TLx493D_A1B6 mag2Sensor_;
+  ifx::tlx493d::TLx493D_A1B6 mag3Sensor_;
 
   bool calibrationActive_ = false;
   bool calibrationDone_ = false;

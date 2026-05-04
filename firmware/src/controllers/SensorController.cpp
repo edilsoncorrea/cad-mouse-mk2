@@ -1,3 +1,26 @@
+/**
+ * SensorController — TLI493D-A1B6 (geração 1)
+ *
+ * Controla 3 sensores magnéticos Hall para o mouse 3D.
+ * Os sensores são TLI493D-A1B6 (gen 1), NÃO A2B6 (gen 2).
+ *
+ * Diferenças principais em relação ao A2B6:
+ *   - Mapa de endereços I2C completamente diferente (gen 1 vs gen 2)
+ *   - setSensitivity() NÃO é suportado — opera apenas em full range
+ *   - Fator de conversão magnético: 0.098 mT/LSB (full range fixo)
+ *
+ * Endereços I2C utilizados (grupo SDA-baixo, A4–A7):
+ *   A4 = 0x3E (8-bit) / 0x1F (7-bit) — padrão ao ligar
+ *   A5 = 0x36 (8-bit) / 0x1B (7-bit)
+ *   A6 = 0x1E (8-bit) / 0x0F (7-bit)
+ *   A7 = 0x16 (8-bit) / 0x0B (7-bit) — reservado
+ *
+ * Atribuição neste projeto:
+ *   MAG1 (D10) → A6 (0x0F)
+ *   MAG2 (D9)  → A5 (0x1B)
+ *   MAG3 (D8)  → A4 (0x1F) — permanece no endereço padrão
+ */
+
 #include "controllers/SensorController.h"
 
 #include "Config.h"
@@ -5,9 +28,9 @@
 using namespace ifx::tlx493d;
 
 SensorController::SensorController()
-    : mag1Sensor_(Wire, TLx493D_IIC_ADDR_A0_e),
-      mag2Sensor_(Wire, TLx493D_IIC_ADDR_A0_e),
-      mag3Sensor_(Wire, TLx493D_IIC_ADDR_A0_e) {}
+    : mag1Sensor_(Wire, TLx493D_IIC_ADDR_A4_e),
+      mag2Sensor_(Wire, TLx493D_IIC_ADDR_A4_e),
+      mag3Sensor_(Wire, TLx493D_IIC_ADDR_A4_e) {}
 
 void SensorController::powerOff(int pin) { digitalWrite(pin, LOW); }
 
@@ -35,19 +58,17 @@ void SensorController::begin() {
 
   powerOn(Config::PIN_MAG1_LS);
   mag1Sensor_.begin(true, false, false, true);
-  mag1Sensor_.setIICAddress(TLx493D_IIC_ADDR_A2_e);
-  mag1Sensor_.setSensitivity(TLx493D_EXTRA_SHORT_RANGE_e);
+  mag1Sensor_.setIICAddress(TLx493D_IIC_ADDR_A6_e);  // A6: 0x1E (8-bit) / 0x0F (7-bit)
   delay(10);
 
   powerOn(Config::PIN_MAG2_LS);
   mag2Sensor_.begin(true, false, false, true);
-  mag2Sensor_.setIICAddress(TLx493D_IIC_ADDR_A1_e);
-  mag2Sensor_.setSensitivity(TLx493D_EXTRA_SHORT_RANGE_e);
+  mag2Sensor_.setIICAddress(TLx493D_IIC_ADDR_A5_e);  // A5: 0x36 (8-bit) / 0x1B (7-bit)
   delay(10);
 
   powerOn(Config::PIN_MAG3_LS);
   mag3Sensor_.begin(true, false, false, true);
-  mag3Sensor_.setSensitivity(TLx493D_EXTRA_SHORT_RANGE_e);
+  // MAG3 permanece no endereço padrão A4: 0x3E (8-bit) / 0x1F (7-bit)
   delay(10);
 }
 
