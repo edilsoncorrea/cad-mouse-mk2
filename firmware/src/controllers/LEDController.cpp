@@ -2,8 +2,13 @@
 #include "Config.h"
 
 LEDController::LEDController()
+#ifdef USE_ONBOARD_LED
+    : ring_(Config::LED_COUNT, Config::PIN_LED_ONBOARD_DATA,
+            NEO_GRB + NEO_KHZ800) {}
+#else
     : ring_(Config::LED_COUNT, Config::PIN_LED_DATA,
             NEO_GRB + NEO_KHZ800) {}
+#endif
 
 void LEDController::fillAll(unsigned long color) {
   for (int i = 0; i < ring_.numPixels(); i++) {
@@ -19,8 +24,13 @@ unsigned long LEDController::toNeoColor(unsigned long color) {
 }
 
 void LEDController::begin() {
+#ifdef USE_ONBOARD_LED
+  pinMode(Config::PIN_LED_ONBOARD_POWER, OUTPUT);
+  digitalWrite(Config::PIN_LED_ONBOARD_POWER, HIGH);
+#else
   pinMode(Config::PIN_LED_LS, OUTPUT);
   digitalWrite(Config::PIN_LED_LS, LOW);
+#endif
 
   ring_.begin();
   ring_.setBrightness(Config::LED_BRIGHTNESS);
@@ -33,7 +43,11 @@ void LEDController::setPower(bool enabled) {
   }
 
   isPowered_ = enabled;
+#ifdef USE_ONBOARD_LED
+  digitalWrite(Config::PIN_LED_ONBOARD_POWER, enabled ? HIGH : LOW);
+#else
   digitalWrite(Config::PIN_LED_LS, enabled ? HIGH : LOW);
+#endif
   delay(10);
   
 }

@@ -73,7 +73,18 @@ const float RESPONSE_LINEARITY = 1.0f;
 const float AXIS_LIMIT = 350.0;
 
 // RGB LEDs
+// Define USE_ONBOARD_LED to use the single NeoPixel on the XIAO RP2040
+// instead of the 8-LED ring on the sensor board.
+#define USE_ONBOARD_LED
+
+#ifdef USE_ONBOARD_LED
+const int LED_COUNT = 1;
+const int PIN_LED_ONBOARD_DATA = 12;    // XIAO RP2040 onboard NeoPixel
+const int PIN_LED_ONBOARD_POWER = 11;   // XIAO RP2040 NeoPixel power enable
+#else
 const int LED_COUNT = 8;
+#endif
+
 const int LED_BRIGHTNESS = 40;
 const unsigned long LED_IDLE_COLOR = 0x00FF00;
 const unsigned long LED_CALIBRATING_COLOR = 0x0000FF;
