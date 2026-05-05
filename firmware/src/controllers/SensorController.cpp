@@ -32,10 +32,11 @@ SensorController::SensorController()
       mag2Sensor_(Wire, TLx493D_IIC_ADDR_A4_e),
       mag3Sensor_(Wire, TLx493D_IIC_ADDR_A4_e) {}
 
-void SensorController::powerOff(int pin) { digitalWrite(pin, LOW); }
+// PMOS high-side: gate LOW = ON (Vgs=-3.3V, conduz), gate HIGH = OFF (Vgs=0)
+void SensorController::powerOff(int pin) { digitalWrite(pin, HIGH); }
 
 void SensorController::powerOn(int pin) {
-  digitalWrite(pin, HIGH);
+  digitalWrite(pin, LOW);
   delay(5);
 }
 
@@ -45,8 +46,8 @@ void SensorController::begin() {
   pinMode(Config::PIN_MAG2_LS, OUTPUT);
   pinMode(Config::PIN_MAG3_LS, OUTPUT);
 
-  // All three rails are pulled high in hardware, so force them all off first
-  // before bringing sensors up one-by-one for address assignment.
+  // PMOS high-side: pull-up externo no gate garante OFF no boot.
+  // Force all OFF (HIGH) before sequential power-on for address assignment.
 
   powerOff(Config::PIN_MAG1_LS);
   powerOff(Config::PIN_MAG2_LS);
