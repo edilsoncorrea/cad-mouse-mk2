@@ -59,16 +59,39 @@ void SensorController::begin() {
 
   powerOn(Config::PIN_MAG1_LS);
   mag1Sensor_.begin(true, false, false, true);
+#ifdef SENSOR_ADDR_RETRY
+  if (!mag1Sensor_.setIICAddress(TLx493D_IIC_ADDR_A6_e)) {
+    // Sensor may have been at a persisted address; begin() resets to A4.
+    // Retry begin() + setIICAddress() on the default address.
+    delay(50);
+    mag1Sensor_.begin(true, false, false, true);
+    mag1Sensor_.setIICAddress(TLx493D_IIC_ADDR_A6_e);
+  }
+#else
   mag1Sensor_.setIICAddress(TLx493D_IIC_ADDR_A6_e);  // A6: 0x1E (8-bit) / 0x0F (7-bit)
+#endif
   delay(10);
 
   powerOn(Config::PIN_MAG2_LS);
   mag2Sensor_.begin(true, false, false, true);
+#ifdef SENSOR_ADDR_RETRY
+  if (!mag2Sensor_.setIICAddress(TLx493D_IIC_ADDR_A5_e)) {
+    delay(50);
+    mag2Sensor_.begin(true, false, false, true);
+    mag2Sensor_.setIICAddress(TLx493D_IIC_ADDR_A5_e);
+  }
+#else
   mag2Sensor_.setIICAddress(TLx493D_IIC_ADDR_A5_e);  // A5: 0x36 (8-bit) / 0x1B (7-bit)
+#endif
   delay(10);
 
   powerOn(Config::PIN_MAG3_LS);
   mag3Sensor_.begin(true, false, false, true);
+#ifdef SENSOR_ADDR_RETRY
+  // MAG3 stays at default A4, but begin() might fail if address was persisted.
+  // The first begin() resets the address; if it failed, retry.
+  // (No setIICAddress needed — MAG3 uses the default A4)
+#endif
   // MAG3 permanece no endereço padrão A4: 0x3E (8-bit) / 0x1F (7-bit)
   delay(10);
 }

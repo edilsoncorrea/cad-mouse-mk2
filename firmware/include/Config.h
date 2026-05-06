@@ -89,6 +89,13 @@ const int LED_BRIGHTNESS = 40;
 const unsigned long LED_IDLE_COLOR = 0x00FF00;
 const unsigned long LED_CALIBRATING_COLOR = 0x0000FF;
 
+// Sensor address retry
+// Enable this if sensors may retain a previously assigned I2C address
+// across power cycles (e.g., when PMOS doesn't fully cut power).
+// When enabled, begin() will retry on the default address (A4) if the
+// first attempt fails (the library's begin() resets the sensor address).
+#define SENSOR_ADDR_RETRY
+
 // FSM timing
 const long IDLE_SLEEP_TIMEOUT_MS = 2 * 60 * 1000;
 
