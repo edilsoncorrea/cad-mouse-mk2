@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Build & Flash RP2040",
+  "description": "Compila o firmware e copia o .uf2 para o drive RPI-RP2 (D:). Coloque a placa em modo bootloader antes de executar.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Execute o comando 'pio run -e seeed_xiao_rp2040' no terminal e mostre o progresso da compilação. Se a compilação for bem-sucedida, copie o arquivo .pio\\build\\seeed_xiao_rp2040\\firmware.uf2 para D:\\. Reporte o resultado de cada etapa."
+  }
+}
