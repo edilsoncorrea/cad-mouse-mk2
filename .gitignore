@@ -1,3 +1,10 @@
 .pio
 .vscode
 .DS_Store
+
+# Stray/empty file
+A4
+
+# Generated PCB fabrication outputs (CAM: Gerbers, drill, assembly, PnP)
+pcbs/fab/
+**/CAMOutputs/
