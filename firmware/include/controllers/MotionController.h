@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Config.h"  // for LEGACY_MOTION_FORMULAS toggle
+
 class MotionController {
  public:
   void reset();
@@ -17,6 +19,9 @@ class MotionController {
   static float lowpass(float prev, float x, float dt, float tau);
   static float biquadLP(BiquadState& s, float x, float dt);
   static void transform(const float delta[9], float axes[6]);
+#ifdef LEGACY_MOTION_FORMULAS
+  static void legacyTransform(const float delta[9], float axes[6]);
+#endif
   static void compensate(const float in[6], float out[6]);
   static float responseCurve(float x);
   float filt_[6] = {};

@@ -18,6 +18,14 @@ const int PIN_MAG3_LS = D8;
 // Samples for calibration offset
 const int ZERO_SAMPLES = 200;
 
+// Motion decomposition mode.
+// By default the pipeline uses the configurable 6×9 TRANSFORM matrix below.
+// Uncomment LEGACY_MOTION_FORMULAS to fall back to the original hard-coded
+// trigonometric formulas (pre-refactor behaviour). Both paths are numerically
+// equivalent by design; the toggle exists purely as a safety rollback so the
+// original decomposition can be restored without a git revert.
+// #define LEGACY_MOTION_FORMULAS
+
 // Sensor-to-axis transformation matrix (6 axes × 9 sensor components).
 // Column order: [m1x, m1y, m1z, m2x, m2y, m2z, m3x, m3y, m3z]
 // Default reproduces the original hard-coded formulas.
