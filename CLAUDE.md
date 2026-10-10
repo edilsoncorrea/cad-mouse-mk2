@@ -59,6 +59,20 @@ pio test -e native           # desktop unit tests for MotionController
 - Commit messages use the `feat:` / `fix:` prefix style.
 - Planning and progress are tracked in [`firmware/TASKS.md`](firmware/TASKS.md), which is written in Portuguese.
 
+## Sensor power-up and I2C addressing
+
+All three TLx493D sensors boot on the same default I2C address. `SensorController::begin()` powers them up one at a time through per-sensor load switches (`PIN_MAG1_LS`=D10, `PIN_MAG2_LS`=D9, `PIN_MAG3_LS`=D8) and re-addresses each one before powering the next. On `main` the load switches are AP22816 with active-low `!EN`, inverted in hardware, so the firmware writes HIGH = on and LOW = off. The LED ring has its own 5 V AP22816 switch on `PIN_LED_LS` (D1). Changing switch hardware or sensor generation means revisiting this sequence and the on/off polarity.
+
+## Work on other branches (not on `main`)
+
+- **`feat/motion-pipeline-improvements`**: Edilson's current local branch. Adds a `LEGACY_MOTION_FORMULAS` toggle in `Config.h` (commented out by default) that restores the original hard-coded decomposition instead of `TRANSFORM`. It also adds sensor board v11/v13 CAM outputs (`pcbs/src/Placa-sensor v*/`) and `docs/referencia.txt` (link to the build video).
+- **`feature/a1b6-sensor-migration`**: hardware-driven firmware changes, with specs in Portuguese:
+  - The mounted sensors are **TLI493D-A1B6 (gen 1)**, not A2B6 as `main` assumes. The class becomes `TLx493D_A1B6`. The sensors boot on A4 (0x1F, 7-bit, SDA low): MAG1 → A6 (0x0F), MAG2 → A5 (0x1B), MAG3 stays on A4. `setSensitivity()` is removed because gen 1 is full range only. Specs: `.kiro/specs/a1b6-sensor-migration/` (requirements, design, tasks; all done).
+  - The sensor switches U1–U3 change from AP22816 to **AO3407 PMOS** (LOW = on, HIGH = off; the gate needs a pull-up so the sensors stay off at boot). U4, the 5 V LED switch, stays on AP22816. Specs: `.kiro/specs/pmos-power-switch-support/requirements.md`, `firmware/KIRO_SPEC_AP22816_AO3407.md`, `firmware/CONVERSA_AP22816_KIRO.md`.
+  - `SENSOR_ADDR_RETRY` recovers an I2C address that persists across power cycles. `USE_ONBOARD_LED` uses the XIAO's NeoPixel for testing without the ring.
+  - The branch also adds a Kiro hook `.kiro/hooks/build-and-flash.kiro.hook`, `parse_sch.py` and Fusion PCB sources (`pcbs/fusion/`).
+- The sensor generation is not consistent across branches: `main` and the v13 partlist say A2B6, while the A1B6 specs say the boards carry A1B6. Confirm which hardware a change targets before touching `SensorController`.
+
 ## Open items (from `firmware/TASKS.md`)
 
 - End-to-end test on real hardware (Fusion 360 / FreeCAD).
@@ -76,3 +90,4 @@ pio test -e native           # desktop unit tests for MotionController
 - [`firmware/README.md`](firmware/README.md): config parameters, pipeline stages, tuning guide
 - [`firmware/SPEC.md`](firmware/SPEC.md): motion processing spec (status: implemented, phases 1–5)
 - [`firmware/TASKS.md`](firmware/TASKS.md): implementation checklist by phase
+- On branch `feature/a1b6-sensor-migration`: `.kiro/specs/` (A1B6 migration, PMOS power switch), `firmware/KIRO_SPEC_AP22816_AO3407.md`, `firmware/CONVERSA_AP22816_KIRO.md`
