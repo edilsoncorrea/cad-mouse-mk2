@@ -13,6 +13,7 @@ class IdleState : public State {
   void runMotionPipeline(float dt, unsigned long now);
   void handleSleepTransition(unsigned long now);
 
-  unsigned long lastUpdateMs_ = 0;
+  unsigned long lastSampleUs_ = 0;
+  bool hasLastSample_ = false;
   unsigned long lastActivityMs_ = 0;
 };

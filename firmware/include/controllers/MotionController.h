@@ -13,7 +13,7 @@ class MotionController {
 
  private:
   static float clampf(float v, float lo, float hi);
-  static float hardZero(float v, float thr);
+  static float deadzone(float v, float thr);
   static float lowpass(float prev, float x, float dt, float tau);
   static float biquadLP(BiquadState& s, float x, float dt);
   static void transform(const float delta[9], float axes[6]);

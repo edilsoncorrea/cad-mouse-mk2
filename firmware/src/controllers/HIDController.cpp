@@ -6,6 +6,9 @@
 
 namespace {
 // 3Dconnexion-compatible HID Report Descriptor.
+// Axis range matches a real SpaceMouse (logical ±350), the same range as
+// Config::AXIS_LIMIT. Apps that scale by the descriptor range would otherwise
+// see full deflection as ~1% of travel.
 // Report 1: Translation (X, Y, Z) — 3 × int16
 // Report 2: Rotation (Rx, Ry, Rz) — 3 × int16
 // Report 3: Buttons — 32 bits
@@ -17,10 +20,10 @@ const uint8_t kHidReportDescriptor[] PROGMEM = {
     // --- Report 1: Translation ---
     0xA1, 0x00,        //   COLLECTION (Physical)
     0x85, 0x01,        //     REPORT_ID (1)
-    0x16, 0x00, 0x80,  //     LOGICAL_MINIMUM (-32768)
-    0x26, 0xFF, 0x7F,  //     LOGICAL_MAXIMUM (32767)
-    0x36, 0x00, 0x80,  //     PHYSICAL_MINIMUM (-32768)
-    0x46, 0xFF, 0x7F,  //     PHYSICAL_MAXIMUM (32767)
+    0x16, 0xA2, 0xFE,  //     LOGICAL_MINIMUM (-350)
+    0x26, 0x5E, 0x01,  //     LOGICAL_MAXIMUM (350)
+    0x36, 0x88, 0xFA,  //     PHYSICAL_MINIMUM (-1400)
+    0x46, 0x78, 0x05,  //     PHYSICAL_MAXIMUM (1400)
     0x09, 0x30,        //     USAGE (X)
     0x09, 0x31,        //     USAGE (Y)
     0x09, 0x32,        //     USAGE (Z)
@@ -32,10 +35,10 @@ const uint8_t kHidReportDescriptor[] PROGMEM = {
     // --- Report 2: Rotation ---
     0xA1, 0x00,        //   COLLECTION (Physical)
     0x85, 0x02,        //     REPORT_ID (2)
-    0x16, 0x00, 0x80,  //     LOGICAL_MINIMUM (-32768)
-    0x26, 0xFF, 0x7F,  //     LOGICAL_MAXIMUM (32767)
-    0x36, 0x00, 0x80,  //     PHYSICAL_MINIMUM (-32768)
-    0x46, 0xFF, 0x7F,  //     PHYSICAL_MAXIMUM (32767)
+    0x16, 0xA2, 0xFE,  //     LOGICAL_MINIMUM (-350)
+    0x26, 0x5E, 0x01,  //     LOGICAL_MAXIMUM (350)
+    0x36, 0x88, 0xFA,  //     PHYSICAL_MINIMUM (-1400)
+    0x46, 0x78, 0x05,  //     PHYSICAL_MAXIMUM (1400)
     0x09, 0x33,        //     USAGE (Rx)
     0x09, 0x34,        //     USAGE (Ry)
     0x09, 0x35,        //     USAGE (Rz)

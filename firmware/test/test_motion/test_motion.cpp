@@ -48,6 +48,16 @@ static void resetAndSteady(MotionController& mc,
   steadyState(mc, raw, baseline, dt, iter, out);
 }
 
+// Expected output for a pre-deadzone value: the dead zone is subtracted and
+// the rest rescaled so ±AXIS_LIMIT stays reachable.
+static float afterDZ(float v, int axis) {
+  const float thr = Config::DEADZONE[axis];
+  const float mag = fabsf(v);
+  if (mag <= thr) return 0.0f;
+  const float scaled = (mag - thr) * Config::AXIS_LIMIT / (Config::AXIS_LIMIT - thr);
+  return (v < 0.0f) ? -scaled : scaled;
+}
+
 // ── 1. Math utility tests ────────────────────────────────────────────
 
 // These exercise the private static helpers via observable behaviour
@@ -137,7 +147,7 @@ void test_char_pure_tx() {
   float raw[9] = {3, 0, 0, 3, 0, 0, 3, 0, 0};
   resetAndSteady(mc, raw, ZERO_BASELINE, out);
 
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, -84.0f, out[0]);   // Tx
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(-84.0f, 0), out[0]);   // Tx
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[1]);     // Ty
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[2]);     // Tz
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[3]);     // Rx
@@ -160,7 +170,7 @@ void test_char_pure_ty() {
   resetAndSteady(mc, raw, ZERO_BASELINE, out);
 
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[0]);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 84.0f, out[1]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(84.0f, 1), out[1]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[2]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[3]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[4]);
@@ -178,7 +188,7 @@ void test_char_pure_tz() {
 
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[0]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[1]);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, -72.0f, out[2]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(-72.0f, 2), out[2]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[3]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[4]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[5]);
@@ -198,7 +208,7 @@ void test_char_pure_ry() {
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[1]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[2]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[3]);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 180.0f, out[4]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(180.0f, 4), out[4]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[5]);
 }
 
@@ -217,7 +227,7 @@ void test_char_pure_rx() {
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[0]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[1]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[2]);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, expected_rx, out[3]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(expected_rx, 3), out[3]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[4]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[5]);
 }
@@ -251,7 +261,7 @@ void test_char_pure_rz_twist() {
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[2]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[3]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[4]);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 60.0f, out[5]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(60.0f, 5), out[5]);
 }
 
 // ── 3. Characterisation: cross-axis bleed (documents known issue) ────
@@ -275,8 +285,8 @@ void test_char_bleed_tilt_to_tz() {
   const float expected_tz = (-1.0f) * ((-10.0f + 3.0f + 3.0f) / 3.0f) * 24.0f;
   const float expected_rx = sqrtf(3.0f) * (3.0f + 3.0f - 2.0f * (-10.0f)) / 3.0f * 18.0f;
 
-  TEST_ASSERT_FLOAT_WITHIN(1.0f, expected_tz, out[2]);  // Tz bleed ≈ 32
-  TEST_ASSERT_FLOAT_WITHIN(1.0f, expected_rx, out[3]);   // Rx primary
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, afterDZ(expected_tz, 2), out[2]);  // Tz bleed ≈ 32
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, afterDZ(expected_rx, 3), out[3]);   // Rx primary
   // Document: |Tz bleed| > deadzone → the bleed IS visible to the user.
   TEST_ASSERT_TRUE(fabsf(out[2]) > Config::DEADZONE[2]);
 }
@@ -292,8 +302,8 @@ void test_char_bleed_asymmetric_ry_to_tz() {
   float raw[9] = {0, 0, 0, 0, 0, -8, 0, 0, 4};
   resetAndSteady(mc, raw, ZERO_BASELINE, out);
 
-  TEST_ASSERT_FLOAT_WITHIN(1.0f, 32.0f, out[2]);   // Tz bleed
-  TEST_ASSERT_FLOAT_WITHIN(1.0f, 216.0f, out[4]);   // Ry primary
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, afterDZ(32.0f, 2), out[2]);   // Tz bleed
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, afterDZ(216.0f, 4), out[4]);   // Ry primary
 }
 
 // ── 4. Baseline subtraction ──────────────────────────────────────────
@@ -320,7 +330,7 @@ void test_baseline_offset() {
   float baseline[9] = {100, 200, 300, 400, 500, 600, 700, 800, 900};
   resetAndSteady(mc, raw, baseline, out);
 
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, -84.0f, out[0]);  // Tx
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(-84.0f, 0), out[0]);  // Tx
 }
 
 // ── 5. Motion activity flag ──────────────────────────────────────────
@@ -366,7 +376,7 @@ void test_filter_step_response_monotonic() {
     if (out[1] > maxVal) maxVal = out[1];
   }
   // Final value should be very close to 140.
-  TEST_ASSERT_FLOAT_WITHIN(1.0f, 140.0f, out[1]);
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, afterDZ(140.0f, 1), out[1]);
   // Overshoot (if any) bounded at 5% of steady state.
   TEST_ASSERT_TRUE(maxVal <= 140.0f * 1.05f);
 }
@@ -381,7 +391,7 @@ void test_filter_convergence_time() {
   for (int i = 0; i < 40; i++) {
     mc.compute(raw, ZERO_BASELINE, 0.01f, out);
   }
-  TEST_ASSERT_FLOAT_WITHIN(1.4f, 140.0f, out[1]);  // within 1%
+  TEST_ASSERT_FLOAT_WITHIN(1.4f, afterDZ(140.0f, 1), out[1]);  // within 1%
 }
 
 void test_filter_returns_to_zero() {
@@ -429,7 +439,7 @@ void test_gain_t_applied() {
   float out[6];
   float raw[9] = {2, 0, 0, 2, 0, 0, 2, 0, 0};
   resetAndSteady(mc, raw, ZERO_BASELINE, out);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, -56.0f, out[0]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(-56.0f, 0), out[0]);
 }
 
 void test_gain_r_applied() {
@@ -438,7 +448,7 @@ void test_gain_r_applied() {
   float out[6];
   float raw[9] = {0, 0, 0, 0, 0, -5, 0, 0, 5};
   resetAndSteady(mc, raw, ZERO_BASELINE, out);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 180.0f, out[4]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(180.0f, 4), out[4]);
 }
 
 // ── 8. Edge cases ────────────────────────────────────────────────────
@@ -650,7 +660,7 @@ void test_comp_identity_output_unchanged() {
   float out[6];
   float raw[9] = {3, 0, 0, 3, 0, 0, 3, 0, 0};
   resetAndSteady(mc, raw, ZERO_BASELINE, out);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, -84.0f, out[0]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(-84.0f, 0), out[0]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[1]);
   TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.0f, out[2]);
 }
@@ -669,7 +679,7 @@ void test_response_linear_output_unchanged() {
   float out[6];
   float raw[9] = {3, 0, 0, 3, 0, 0, 3, 0, 0};
   resetAndSteady(mc, raw, ZERO_BASELINE, out);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, -84.0f, out[0]);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, afterDZ(-84.0f, 0), out[0]);
 }
 
 void test_response_curve_symmetry() {
@@ -723,7 +733,7 @@ void test_biquad_step_monotonic() {
   TEST_ASSERT_TRUE_MESSAGE(maxVal <= 140.0f * 1.05f,
                            "biquad overshoot exceeds 5%");
   // Converged to steady state.
-  TEST_ASSERT_FLOAT_WITHIN(1.5f, 140.0f, out[1]);
+  TEST_ASSERT_FLOAT_WITHIN(1.5f, afterDZ(140.0f, 1), out[1]);
 }
 
 void test_biquad_convergence() {
@@ -735,7 +745,7 @@ void test_biquad_convergence() {
   resetAndSteady(mc, raw, ZERO_BASELINE, out, 0.01f, 500);
   // Expected: 5 * GAIN_T[1] * SIGN_AXIS[1] = 140
   const float expect = 5.0f * Config::GAIN_T[1] * Config::SIGN_AXIS[1];
-  TEST_ASSERT_FLOAT_WITHIN(1.5f, expect, out[1]);
+  TEST_ASSERT_FLOAT_WITHIN(1.5f, afterDZ(expect, 1), out[1]);
 }
 
 void test_biquad_returns_to_zero() {
@@ -785,6 +795,51 @@ void test_biquad_reset_clears_state() {
 
 // ── Runner ───────────────────────────────────────────────────────────
 
+// ── Dead zone / filter interaction ───────────────────────────────────
+
+void test_deadzone_noisy_input_not_swallowed() {
+  // A steady push just above the dead zone with sensor noise used to be
+  // eaten entirely, because every noisy dip under the threshold reset the
+  // filter. It must now come through as a small, steady output.
+  MotionController mc;
+  mc.reset();
+  float out[6];
+  unsigned seed = 12345;
+  int zeros = 0, total = 0;
+  for (int i = 0; i < 2000; i++) {
+    seed = seed * 1103515245u + 12345u;
+    const float noise = ((seed >> 16) % 1000) / 1000.0f * 6.0f - 3.0f;  // ±3
+    const float target = 20.0f + noise;  // desired Ty before dead zone
+    const float v = target / Config::GAIN_T[1];
+    float raw[9] = {0, v, 0, 0, v, 0, 0, v, 0};
+    mc.compute(raw, ZERO_BASELINE, 0.004f, out);
+    if (i > 200) {
+      total++;
+      if (out[1] == 0.0f) zeros++;
+    }
+  }
+  TEST_ASSERT_TRUE_MESSAGE(zeros < total / 20, "push above dead zone was swallowed");
+}
+
+void test_deadzone_output_continuous() {
+  // Just above the threshold the output is close to 0, not a jump to DEADZONE.
+  MotionController mc;
+  float out[6];
+  const float v = (Config::DEADZONE[1] + 0.5f) / Config::GAIN_T[1];
+  float raw[9] = {0, v, 0, 0, v, 0, 0, v, 0};
+  resetAndSteady(mc, raw, ZERO_BASELINE, out);
+  TEST_ASSERT_TRUE(out[1] > 0.0f);
+  TEST_ASSERT_TRUE(out[1] < 1.0f);
+}
+
+void test_deadzone_full_scale_reachable() {
+  MotionController mc;
+  float out[6];
+  float raw[9] = {0, 100, 0, 0, 100, 0, 0, 100, 0};
+  resetAndSteady(mc, raw, ZERO_BASELINE, out);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, Config::AXIS_LIMIT, out[1]);
+}
+
 int main(int argc, char** argv) {
   UNITY_BEGIN();
 
@@ -830,6 +885,10 @@ int main(int argc, char** argv) {
   // Edge cases
   RUN_TEST(test_all_axes_simultaneously);
   RUN_TEST(test_extreme_inputs);
+  RUN_TEST(test_deadzone_noisy_input_not_swallowed);
+  RUN_TEST(test_deadzone_output_continuous);
+  RUN_TEST(test_deadzone_full_scale_reachable);
+
   RUN_TEST(test_zero_dt);
   RUN_TEST(test_negative_dt);
 

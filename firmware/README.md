@@ -30,7 +30,7 @@ The [`MotionController`](src/controllers/MotionController.cpp) processes 9 raw s
 
 ```
 raw[9] → baseline subtract → matrix transform 6×9 → cross-axis compensation 6×6
-       → gain × sign → response curve → biquad filter → per-axis deadzone → clamp → out[6]
+       → gain × sign → response curve → biquad filter → clamp → per-axis deadzone → out[6]
 ```
 
 **Sensor layout:**
@@ -46,11 +46,13 @@ raw[9] → baseline subtract → matrix transform 6×9 → cross-axis compensati
 | Compensation 6×6 | `COMP[6][6]` | Corrects residual cross-axis bleed after transform. Identity by default — set off-diagonal terms to cancel measured bleed. |
 | Gain × sign | `GAIN_T[3]`, `GAIN_R[3]`, `SIGN_AXIS[6]` | Scales and inverts each axis to match the host coordinate system. |
 | Response curve | `RESPONSE_LINEARITY` | Blends linear + cubic shaping. `1.0` = linear (default), `0.6` = good for CAD, `0.0` = aggressive cubic for fine center control. |
-| Filter | `FILTER_FREQ_HZ`, `FILTER_Q` | Biquad low-pass (Direct Form II Transposed). Comment out `#define FILTER_BIQUAD` to fall back to single-pole exponential (`SMOOTH_TAU_S`). |
-| Deadzone | `DEADZONE[6]` | Per-axis noise gate. Signal below the threshold is zeroed and filter state is reset. |
-| Clamp | `AXIS_LIMIT` | Output clamped to ±350. |
+| Filter | `FILTER_FREQ_HZ`, `FILTER_Q`, `SAMPLE_PERIOD_US` | Runs at a fixed rate (default 4 ms / 250 Hz) with a fixed dt, so the coefficients never change. Biquad low-pass (Direct Form II Transposed). Comment out `#define FILTER_BIQUAD` to fall back to single-pole exponential (`SMOOTH_TAU_S`). |
+| Clamp | `AXIS_LIMIT` | Output clamped to ±350, the same range the HID descriptor declares. |
+| Deadzone | `DEADZONE[6]` | Per-axis noise gate on the filtered signal. Output is 0 inside, then ramps up from 0 and is rescaled so ±350 is still reachable. The filter is never reset. |
 
 ### Tuning Guide
+
+**Weak or noisy axis:** Set `TELEMETRY_RAW = true` to also print the 9 raw sensor deltas (`m1x`…`m3z`). Push the knob along one axis only and check that the expected components move by similar amounts on all three sensors (e.g. pure Tx should move `m1x`, `m2x` and `m3x` together). One sensor that barely moves, or moves the opposite way, points to a hardware or assembly problem.
 
 **Cross-axis compensation:** Enable telemetry, move one axis at a time, note unwanted output on other axes, then set `COMP` off-diagonal terms to cancel the leak.
 
