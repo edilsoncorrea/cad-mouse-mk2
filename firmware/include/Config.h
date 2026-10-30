@@ -5,6 +5,9 @@
 namespace Config {
 
 const bool ENABLE_TELEMETRY = true;
+// Also print the 9 raw sensor deltas (m1x..m3z) over serial. Useful to see
+// which sensor component moves when you push the knob along one axis.
+const bool TELEMETRY_RAW = false;
 
 // Hardware pins (XIAO RP2040)
 const int PIN_RIGHT_BTN = D0;
@@ -53,9 +56,14 @@ const float COMP[6][6] = {
   {0, 0, 0, 0, 0, 1},
 };
 
-// Per-axis dead zones
+// Per-axis dead zones, applied after the filter. Output is rescaled so it
+// starts at 0 at the edge of the dead zone and still reaches AXIS_LIMIT.
 //                    Tx    Ty    Tz    Rx    Ry    Rz
 const float DEADZONE[6] = {16.0, 16.0, 16.0, 20.0, 20.0, 20.0};
+
+// Motion pipeline sample period. The pipeline runs at this fixed rate and the
+// filter always uses this value as dt, so its coefficients never change.
+const unsigned long SAMPLE_PERIOD_US = 4000;  // 250 Hz
 
 // Smoothing (single-pole fallback)
 const float SMOOTH_TAU_S = 0.08;

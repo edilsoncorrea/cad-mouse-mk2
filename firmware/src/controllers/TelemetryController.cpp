@@ -38,3 +38,21 @@ void TelemetryController::publish(const float motion[6], int buttonBits,
   Serial.print(">hid:");
   Serial.println(hidReportSent ? 1 : 0);
 }
+
+void TelemetryController::publishRaw(const float raw[9], const float* baseline) {
+  if (!enabled() || !Config::TELEMETRY_RAW) {
+    return;
+  }
+  // Printed on the same ticks as publish(), which runs right after this.
+  if (((tick_ + 1) % kPrintEvery) != 0) {
+    return;
+  }
+
+  static const char* const kNames[9] = {">m1x:", ">m1y:", ">m1z:",
+                                        ">m2x:", ">m2y:", ">m2z:",
+                                        ">m3x:", ">m3y:", ">m3z:"};
+  for (int i = 0; i < 9; i++) {
+    Serial.print(kNames[i]);
+    Serial.println(raw[i] - baseline[i], 4);
+  }
+}

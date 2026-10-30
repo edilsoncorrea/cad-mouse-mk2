@@ -23,8 +23,15 @@ float MotionController::clampf(float v, float lo, float hi) {
   return v;
 }
 
-float MotionController::hardZero(float v, float thr) {
-  return (fabs(v) < thr) ? 0.0 : v;
+float MotionController::deadzone(float v, float thr) {
+  // Continuous dead zone: 0 inside, then ramps from 0 so there is no jump at
+  // the threshold, and is rescaled so ±AXIS_LIMIT is still reachable.
+  const float mag = fabsf(v);
+  if (mag <= thr) return 0.0f;
+  const float span = Config::AXIS_LIMIT - thr;
+  if (span <= 0.0f) return 0.0f;
+  const float scaled = (mag - thr) * Config::AXIS_LIMIT / span;
+  return (v < 0.0f) ? -scaled : scaled;
 }
 
 float MotionController::lowpass(float prev, float x, float dt, float tau) {
@@ -108,26 +115,22 @@ void MotionController::compute(const float raw[9], const float* baseline, float 
     y[i] = responseCurve(y[i]);
   }
 
-  // Filter, clamp to range and dead zones.
+  // Filter, clamp to range, then dead zone.
+  // The filter always runs, so its state is never reset mid-motion. Resetting
+  // it whenever the input dipped under the dead zone made small or noisy
+  // movements stutter or vanish entirely.
   motionActive_ = false;
   for (int i = 0; i < 6; i++) {
-    const float dead = Config::DEADZONE[i];
-
-    if (fabs(y[i]) < dead) {
-      filt_[i] = 0.0;
-      bq_[i] = {};
-    } else {
 #ifdef FILTER_BIQUAD
-      filt_[i] = biquadLP(bq_[i], y[i], dt);
+    filt_[i] = biquadLP(bq_[i], y[i], dt);
 #else
-      filt_[i] = lowpass(filt_[i], y[i], dt, Config::SMOOTH_TAU_S);
+    filt_[i] = lowpass(filt_[i], y[i], dt, Config::SMOOTH_TAU_S);
 #endif
-    }
 
     const float limited =
         clampf(filt_[i], -Config::AXIS_LIMIT, Config::AXIS_LIMIT);
-    out[i] = hardZero(limited, dead);
-    if (out[i] != 0.0) {
+    out[i] = deadzone(limited, Config::DEADZONE[i]);
+    if (out[i] != 0.0f) {
       motionActive_ = true;
     }
   }
