@@ -35,4 +35,7 @@ class HIDController {
   uint16_t buttonBitsSent_ = 0;
   ReportTranslation lastSentTrans_{};
   ReportRotation lastSentRot_{};
+  unsigned long lastAxesSentMs_ = 0;
+  // Resend period for an unchanged, non-zero reading (well under 150 ms).
+  static constexpr unsigned long kAxesKeepAliveMs = 16;
 };
