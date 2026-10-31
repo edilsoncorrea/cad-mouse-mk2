@@ -1,3 +1,9 @@
 .pio
 .vscode
 .DS_Store
+
+# Stray/empty file created accidentally
+A4
+
+# Generated PCB CAM/fab output archives (the extracted folders are versioned)
+pcbs/fab/*.zip

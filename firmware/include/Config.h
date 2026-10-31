@@ -6,6 +6,10 @@ namespace Config {
 
 const bool ENABLE_TELEMETRY = true;
 
+// Diagnostic: also stream the 9 baseline-subtracted sensor deltas
+// (m1x..m3z) alongside the processed axes. Comment out for normal use.
+#define TELEMETRY_RAW
+
 // Hardware pins (XIAO RP2040)
 const int PIN_RIGHT_BTN = D0;
 const int PIN_LEFT_BTN = D2;
@@ -17,6 +21,14 @@ const int PIN_MAG3_LS = D8;
 
 // Samples for calibration offset
 const int ZERO_SAMPLES = 200;
+
+// Motion decomposition mode.
+// By default the pipeline uses the configurable 6×9 TRANSFORM matrix below.
+// Uncomment LEGACY_MOTION_FORMULAS to fall back to the original hard-coded
+// trigonometric formulas (pre-refactor behaviour). Both paths are numerically
+// equivalent by design; the toggle exists purely as a safety rollback so the
+// original decomposition can be restored without a git revert.
+#define LEGACY_MOTION_FORMULAS
 
 // Sensor-to-axis transformation matrix (6 axes × 9 sensor components).
 // Column order: [m1x, m1y, m1z, m2x, m2y, m2z, m3x, m3y, m3z]
@@ -42,15 +54,51 @@ const float GAIN_T[3] = {28.0, 28.0, 24.0};
 const float GAIN_R[3] = {18.0, 18.0, 20.0};
 const int SIGN_AXIS[6] = {-1, +1, -1, +1, +1, +1};
 
+// Global sensitivity multiplier, applied on top of GAIN_T/GAIN_R.
+// DEADZONE is scaled by the same factor, so the force needed to start a
+// movement (and the rest-noise rejection) stays the same; only the response
+// above the dead zone gets stronger. Tune in small steps (e.g. 1.2 -> 1.4).
+const float SENSITIVITY = 1.2f;
+
 // Cross-axis compensation matrix (6×6, identity = no compensation).
 // Off-diagonal terms cancel residual bleed between axes.
+// Measured 2026-10-30 from per-axis push tests (TELEMETRY_RAW): inverse of
+// the observed response matrix, keeping only couplings consistent in both
+// directions. Main fix: X push leaked ~60% into Rx. Z row/column left as
+// identity because the Z bleed was not linear (same sign both directions).
+// NOTE: COMP is applied to the raw axes, BEFORE SIGN_AXIS and GAIN_T/GAIN_R,
+// so coefficients are expressed in raw (pre-gain) units.
 const float COMP[6][6] = {
-  {1, 0, 0, 0, 0, 0},
-  {0, 1, 0, 0, 0, 0},
-  {0, 0, 1, 0, 0, 0},
-  {0, 0, 0, 1, 0, 0},
-  {0, 0, 0, 0, 1, 0},
-  {0, 0, 0, 0, 0, 1},
+  { 1.005f,  0.011f, 0.000f,  0.021f,  0.316f, -0.103f},
+  { 0.054f,  1.163f, 0.000f,  0.318f,  0.037f, -0.009f},
+  { 0.000f,  0.000f, 1.000f,  0.000f,  0.000f,  0.000f},
+  {-0.842f,  0.549f, 0.000f,  1.070f,  0.026f,  0.041f},
+  { 0.225f, -0.126f, 0.000f, -0.245f,  1.004f, -0.168f},
+  {-0.204f, -0.002f, 0.000f, -0.004f, -0.064f,  1.021f},
+};
+
+// Second-order bleed correction, applied after sign/gain (output units):
+//   y[i] -= BLEED_LIN[i][j] * y[j] + BLEED_ABS[i][j] * |y[j]|
+// Cancels coupling that has the same sign in both directions (e.g. twisting
+// Rz either way lifts the knob -> Z and Rx drop), which COMP cannot fix.
+// Measured 2026-10-30 from per-axis push tests.
+//                         X       Y  Z  Rx  Ry   Rz
+// Ry column fitted from a dedicated left/right tilt test.
+const float BLEED_LIN[6][6] = {
+  {0,      0, 0, 0, -0.055f,  0},        // X  <- Ry
+  {0,      0, 0, 0,  0.079f,  0},        // Y  <- Ry
+  {0.014f, 0, 0, 0,  0.049f,  0.255f},   // Z  <- X, Ry, Rz
+  {0,      0, 0, 0, -0.029f, -0.037f},   // Rx <- Ry, Rz
+  {0,      0, 0, 0,  0,       0},
+  {0,      0, 0, 0, -0.086f,  0},        // Rz <- Ry
+};
+const float BLEED_ABS[6][6] = {
+  {0,       0, 0, 0, -0.074f,  0},       // X  <- |Ry|
+  {0,       0, 0, 0, -0.078f,  0},       // Y  <- |Ry|
+  {-0.245f, 0, 0, 0,  0.128f, -0.528f},  // Z  <- |X|, |Ry|, |Rz|
+  {0,       0, 0, 0, -0.162f, -0.198f},  // Rx <- |Ry|, |Rz|
+  {0,       0, 0, 0,  0,       0},
+  {0,       0, 0, 0, -0.023f,  0},       // Rz <- |Ry|
 };
 
 // Per-axis dead zones
