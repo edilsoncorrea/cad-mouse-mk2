@@ -148,8 +148,22 @@ void MotionController::compute(const float raw[9], const float* baseline, float 
   // Apply sign fixes and gains.
   float y[6];
   for (int i = 0; i < 3; i++) {
-    y[i]     = Config::SIGN_AXIS[i]     * comp[i]     * Config::GAIN_T[i];
-    y[i + 3] = Config::SIGN_AXIS[i + 3] * comp[i + 3] * Config::GAIN_R[i];
+    y[i]     = Config::SIGN_AXIS[i]     * comp[i]     * Config::GAIN_T[i] *
+               Config::SENSITIVITY;
+    y[i + 3] = Config::SIGN_AXIS[i + 3] * comp[i + 3] * Config::GAIN_R[i] *
+               Config::SENSITIVITY;
+  }
+
+  // Second-order bleed correction (uses a snapshot so terms don't chain).
+  {
+    float src[6];
+    for (int i = 0; i < 6; i++) src[i] = y[i];
+    for (int i = 0; i < 6; i++) {
+      for (int j = 0; j < 6; j++) {
+        y[i] -= Config::BLEED_LIN[i][j] * src[j] +
+                Config::BLEED_ABS[i][j] * fabsf(src[j]);
+      }
+    }
   }
 
   // Non-linear response curve.
@@ -160,7 +174,7 @@ void MotionController::compute(const float raw[9], const float* baseline, float 
   // Filter, clamp to range and dead zones.
   motionActive_ = false;
   for (int i = 0; i < 6; i++) {
-    const float dead = Config::DEADZONE[i];
+    const float dead = Config::DEADZONE[i] * Config::SENSITIVITY;
 
     if (fabs(y[i]) < dead) {
       filt_[i] = 0.0;

@@ -733,8 +733,9 @@ void test_biquad_convergence() {
   float out[6];
   float raw[9] = {0, 5, 0, 0, 5, 0, 0, 5, 0};
   resetAndSteady(mc, raw, ZERO_BASELINE, out, 0.01f, 500);
-  // Expected: 5 * GAIN_T[1] * SIGN_AXIS[1] = 140
-  const float expect = 5.0f * Config::GAIN_T[1] * Config::SIGN_AXIS[1];
+  // Expected: 5 * GAIN_T[1] * SENSITIVITY * SIGN_AXIS[1]
+  const float expect =
+      5.0f * Config::GAIN_T[1] * Config::SENSITIVITY * Config::SIGN_AXIS[1];
   TEST_ASSERT_FLOAT_WITHIN(1.5f, expect, out[1]);
 }
 

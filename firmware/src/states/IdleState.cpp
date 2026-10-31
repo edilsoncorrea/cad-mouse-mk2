@@ -34,7 +34,16 @@ void IdleState::runMotionPipeline(float dt, unsigned long now) {
   const uint16_t buttonBits = inputController.buttonBits();
   const bool hidReportSent = hidController.sendReports(motion, buttonBits);
   if (telemetryController.enabled()) {
+#ifdef TELEMETRY_RAW
+    float delta[9];
+    const float* base = sensorController.baseline();
+    for (int i = 0; i < 9; i++) {
+      delta[i] = raw[i] - base[i];
+    }
+    telemetryController.publish(motion, buttonBits, hidReportSent, delta);
+#else
     telemetryController.publish(motion, buttonBits, hidReportSent);
+#endif
   }
 }
 
