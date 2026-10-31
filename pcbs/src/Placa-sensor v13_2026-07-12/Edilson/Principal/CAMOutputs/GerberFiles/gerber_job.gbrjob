@@ -1,0 +1,24 @@
+{
+    "Header": {
+        "Comment": "All values are metric (mm)",
+        "CreationDate": "2026-07-13T00:22:58Z",
+        "GenerationSoftware": {
+            "Application": "Fusion Electronics",
+            "Vendor": "Autodesk",
+            "Version": "9.7.0"
+        },
+        "Part": "Single"
+    },
+    "Overall": {
+        "BoardThickness": 1.6608,
+        "LayerNumber": 2,
+        "Name": {
+            "ProjectId": "Placa-sensor v11"
+        },
+        "Owner": "Edilson Corrêa <edilsoncorrea117@gmail.com>",
+        "Size": {
+            "X": 64,
+            "Y": 60.983816
+        }
+    }
+}

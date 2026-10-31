@@ -3,7 +3,8 @@
 class TelemetryController {
  public:
   void begin();
-  void publish(const float motion[6], int buttonBits, bool hidReportSent);
+  void publish(const float motion[6], int buttonBits, bool hidReportSent,
+               const float* delta = nullptr);
   bool enabled() const;
 
  private:

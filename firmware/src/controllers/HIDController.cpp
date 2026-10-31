@@ -9,6 +9,11 @@ namespace {
 // Report 1: Translation (X, Y, Z) — 3 × int16
 // Report 2: Rotation (Rx, Ry, Rz) — 3 × int16
 // Report 3: Buttons — 32 bits
+//
+// The axis range is declared as ±350, the range the firmware actually sends
+// (Config::AXIS_LIMIT) and the one real 3Dconnexion devices declare. Apps that
+// read the HID directly (e.g. SolidCraft) scale by the declared range: with
+// ±32767 a full push arrived as ~±4 units and calibration failed.
 const uint8_t kHidReportDescriptor[] PROGMEM = {
     0x05, 0x01,        // USAGE_PAGE (Generic Desktop)
     0x09, 0x08,        // USAGE (Multi-axis Controller)
@@ -17,10 +22,10 @@ const uint8_t kHidReportDescriptor[] PROGMEM = {
     // --- Report 1: Translation ---
     0xA1, 0x00,        //   COLLECTION (Physical)
     0x85, 0x01,        //     REPORT_ID (1)
-    0x16, 0x00, 0x80,  //     LOGICAL_MINIMUM (-32768)
-    0x26, 0xFF, 0x7F,  //     LOGICAL_MAXIMUM (32767)
-    0x36, 0x00, 0x80,  //     PHYSICAL_MINIMUM (-32768)
-    0x46, 0xFF, 0x7F,  //     PHYSICAL_MAXIMUM (32767)
+    0x16, 0xA2, 0xFE,  //     LOGICAL_MINIMUM (-350)
+    0x26, 0x5E, 0x01,  //     LOGICAL_MAXIMUM (350)
+    0x36, 0xA2, 0xFE,  //     PHYSICAL_MINIMUM (-350)
+    0x46, 0x5E, 0x01,  //     PHYSICAL_MAXIMUM (350)
     0x09, 0x30,        //     USAGE (X)
     0x09, 0x31,        //     USAGE (Y)
     0x09, 0x32,        //     USAGE (Z)
@@ -32,10 +37,10 @@ const uint8_t kHidReportDescriptor[] PROGMEM = {
     // --- Report 2: Rotation ---
     0xA1, 0x00,        //   COLLECTION (Physical)
     0x85, 0x02,        //     REPORT_ID (2)
-    0x16, 0x00, 0x80,  //     LOGICAL_MINIMUM (-32768)
-    0x26, 0xFF, 0x7F,  //     LOGICAL_MAXIMUM (32767)
-    0x36, 0x00, 0x80,  //     PHYSICAL_MINIMUM (-32768)
-    0x46, 0xFF, 0x7F,  //     PHYSICAL_MAXIMUM (32767)
+    0x16, 0xA2, 0xFE,  //     LOGICAL_MINIMUM (-350)
+    0x26, 0x5E, 0x01,  //     LOGICAL_MAXIMUM (350)
+    0x36, 0xA2, 0xFE,  //     PHYSICAL_MINIMUM (-350)
+    0x46, 0x5E, 0x01,  //     PHYSICAL_MAXIMUM (350)
     0x09, 0x33,        //     USAGE (Rx)
     0x09, 0x34,        //     USAGE (Ry)
     0x09, 0x35,        //     USAGE (Rz)
@@ -99,7 +104,13 @@ bool HIDController::sendReports(const float motion[6], uint16_t buttonBits) {
   ReportRotation rot{};
   makeReports(motion, trans, rot);
 
-  const bool sendAxes = reportsChanged(trans, rot);
+  // While the cap is held out, resend even an unchanged reading: apps that read
+  // the HID directly treat ~150 ms of silence as "released" (a steady or
+  // saturated push would otherwise look like letting go).
+  const bool holding = trans.x || trans.y || trans.z || rot.rx || rot.ry || rot.rz;
+  const bool keepAlive =
+      holding && (millis() - lastAxesSentMs_) >= kAxesKeepAliveMs;
+  const bool sendAxes = reportsChanged(trans, rot) || keepAlive;
   const bool sendButtons = (buttonBits != buttonBitsSent_);
 
   if (!usbHid_.ready() || (!sendAxes && !sendButtons)) {
@@ -114,6 +125,7 @@ bool HIDController::sendReports(const float motion[6], uint16_t buttonBits) {
     usbHid_.sendReport(0x02, &rot, sizeof(rot));
     lastSentTrans_ = trans;
     lastSentRot_ = rot;
+    lastAxesSentMs_ = millis();
   }
 
   if (sendButtons) {

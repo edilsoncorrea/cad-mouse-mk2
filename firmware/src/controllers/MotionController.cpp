@@ -63,6 +63,47 @@ void MotionController::transform(const float delta[9], float axes[6]) {
   }
 }
 
+#ifdef LEGACY_MOTION_FORMULAS
+// Original pre-refactor decomposition, kept as a compile-time rollback.
+// Produces the same six raw axes [Tx, Ty, Tz, Rx, Ry, Rz] the TRANSFORM
+// matrix encodes, from the baseline-subtracted sensor deltas.
+void MotionController::legacyTransform(const float delta[9], float axes[6]) {
+  const float mag1x = delta[0], mag1y = delta[1], mag1z = delta[2];
+  const float mag2x = delta[3], mag2y = delta[4], mag2z = delta[5];
+  const float mag3x = delta[6], mag3y = delta[7], mag3z = delta[8];
+
+  // Translation: average of each component across the three sensors.
+  const float tx = (mag1x + mag2x + mag3x) / 3.0f;
+  const float ty = (mag1y + mag2y + mag3y) / 3.0f;
+  const float tz = (mag1z + mag2z + mag3z) / 3.0f;
+
+  // Sensor positions in the triangle (normalized), MAG1 bottom, MAG2/3 top.
+  const float mag1PosX = 0.0f;
+  const float mag1PosY = -0.5773503f;  // -√3/3
+  const float mag2PosX = -0.5f;
+  const float mag2PosY = 0.2886751f;   // √3/6
+  const float mag3PosX = 0.5f;
+  const float mag3PosY = 0.2886751f;
+
+  // Rotation:
+  //   Rx = √3·(mag2z + mag3z − 2·mag1z) / 3   (front/back tilt)
+  //   Ry = mag3z − mag2z                       (side-to-side tilt)
+  //   Rz = Σ(posXᵢ·magYᵢ − posYᵢ·magXᵢ)       (twist about vertical axis)
+  const float rx = (1.7320508f * (mag2z + mag3z - 2.0f * mag1z)) / 3.0f;
+  const float ry = (mag3z - mag2z);
+  const float rz = (mag1PosX * mag1y - mag1PosY * mag1x) +
+                   (mag2PosX * mag2y - mag2PosY * mag2x) +
+                   (mag3PosX * mag3y - mag3PosY * mag3x);
+
+  axes[0] = tx;
+  axes[1] = ty;
+  axes[2] = tz;
+  axes[3] = rx;
+  axes[4] = ry;
+  axes[5] = rz;
+}
+#endif
+
 void MotionController::compensate(const float in[6], float out[6]) {
   for (int r = 0; r < 6; r++) {
     float sum = 0.0f;
@@ -88,9 +129,17 @@ void MotionController::compute(const float raw[9], const float* baseline, float 
     delta[i] = raw[i] - baseline[i];
   }
 
-  // Matrix transform: 9 sensor deltas → 6 raw axes.
+  // Sensor deltas → 6 raw axes.
   float axes[6];
+#ifdef LEGACY_MOTION_FORMULAS
+  // Rollback path: original hard-coded trigonometric decomposition.
+  // Sensor triangle (all sensors share the same package orientation):
+  //   MAG1 = bottom, MAG2 = top left, MAG3 = top right.
+  legacyTransform(delta, axes);
+#else
+  // Matrix transform: 9 sensor deltas → 6 raw axes.
   transform(delta, axes);
+#endif
 
   // Cross-axis compensation.
   float comp[6];
@@ -99,8 +148,22 @@ void MotionController::compute(const float raw[9], const float* baseline, float 
   // Apply sign fixes and gains.
   float y[6];
   for (int i = 0; i < 3; i++) {
-    y[i]     = Config::SIGN_AXIS[i]     * comp[i]     * Config::GAIN_T[i];
-    y[i + 3] = Config::SIGN_AXIS[i + 3] * comp[i + 3] * Config::GAIN_R[i];
+    y[i]     = Config::SIGN_AXIS[i]     * comp[i]     * Config::GAIN_T[i] *
+               Config::SENSITIVITY;
+    y[i + 3] = Config::SIGN_AXIS[i + 3] * comp[i + 3] * Config::GAIN_R[i] *
+               Config::SENSITIVITY;
+  }
+
+  // Second-order bleed correction (uses a snapshot so terms don't chain).
+  {
+    float src[6];
+    for (int i = 0; i < 6; i++) src[i] = y[i];
+    for (int i = 0; i < 6; i++) {
+      for (int j = 0; j < 6; j++) {
+        y[i] -= Config::BLEED_LIN[i][j] * src[j] +
+                Config::BLEED_ABS[i][j] * fabsf(src[j]);
+      }
+    }
   }
 
   // Non-linear response curve.
@@ -111,7 +174,7 @@ void MotionController::compute(const float raw[9], const float* baseline, float 
   // Filter, clamp to range and dead zones.
   motionActive_ = false;
   for (int i = 0; i < 6; i++) {
-    const float dead = Config::DEADZONE[i];
+    const float dead = Config::DEADZONE[i] * Config::SENSITIVITY;
 
     if (fabs(y[i]) < dead) {
       filt_[i] = 0.0;
